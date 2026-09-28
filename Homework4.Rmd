@@ -1,0 +1,99 @@
+---
+title: "HW4"
+author: "William Harris"
+date: "2026-09-28"
+output: 
+  github_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(mdsr)
+library(dplyr)
+library(dbplyr)
+library(DBI)
+library(RSQLite)
+library(RMariaDB)
+```
+Question 2:
+```{r}
+con <- dbConnect(
+  MariaDB(), host = "scidb.smith.edu",
+  user = "waiuser", password = "smith_waiDB", 
+  dbname = "wai"
+)
+Measurements <- tbl(con, "Measurements")
+dbGetQuery(con, "SELECT COUNT(*) FROM Measurements") #Getting the row count
+dbDisconnect(con)
+```
+There are 5,052,304 rows in the "measurements" table. Wowie zowie! 
+
+Question 3:
+```{r}
+con <- dbConnect_scidb("airlines")
+dbGetQuery(con, "SELECT year, COUNT(*) AS n
+            FROM flights
+            GROUP BY year;")
+
+```
+There are observations from from 2013, 2014, and 2015.
+```{r}
+#tbl(con, "flights")
+```
+Question 4:
+Q4.1:
+```{r}
+dbGetQuery(con, "SELECT COUNT(*) FROM flights
+           WHERE year = 2015 AND month = 5 AND day = 14
+           AND dest = 'DFW'
+           ")
+```
+737 flights flew into Dallas Fort Worth on May 14th, 2015
+
+Q4.2:
+```{r}
+dbGetQuery(con, "SELECT dest, COUNT(*) 
+           FROM flights
+           WHERE year = 2015
+           AND origin = 'ORD'
+           GROUP BY dest
+           ORDER BY COUNT(*) DESC
+           LIMIT 0,10") #top 10 results
+```
+Of all domestic flights going out from Chicago O'Hare in 2015, the most common 
+destinations were LaGuardia, Los Angeles, Dallas Fort Worth, San Francisco 
+International, and Boston Logan International. This is about what I would guess
+are the most popular domestic destinations. 
+
+Q4.3:
+```{r}
+dbGetQuery(con, "SELECT dest, AVG(arr_delay) AS avg_delay 
+           FROM flights
+           WHERE year = 2015
+           GROUP BY dest
+           ORDER BY avg_delay DESC
+           LIMIT 0,10")
+```
+The highest average delays in arrivals in 2015 was St. Cloud in Minnesota.
+
+Q4.4:
+```{r}
+dbGetQuery(con, "SELECT COUNT(*) FROM flights
+           WHERE year = 2015 AND
+           (dest = 'BDL'
+           OR origin = 'BDL')
+           ")
+```
+41,025 flights went into or out of BDL in 2015. 
+
+Q4.5:
+```{r}
+dbGetQuery(con, "SELECT carrier, flight FROM flights
+           WHERE year = 2015 AND month = 9 AND day = 26 AND
+           ((dest = 'LAX' AND origin = 'JFK') 
+           OR (origin = 'LAX'AND dest = 'JFK'))
+           ")
+dbDisconnect(con)
+```
