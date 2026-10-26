@@ -42,22 +42,22 @@ carriers <- dbGetQuery(
    ORDER BY carrier"
 )$carrier
 
-flight_summary <- dbGetQuery(
-  con,
-  "SELECT
-     year,
-     month,
-     origin,
-     dest,
-     carrier,
-     COUNT(*) AS flight_count,
-     AVG(arr_delay) AS avg_arr_delay,
-     SUM(CASE WHEN arr_delay IS NOT NULL
-         THEN 1 ELSE 0 END) AS delay_count
-   FROM flights
-   GROUP BY year, month, origin, dest, carrier
-   ORDER BY year, month"
-)
+#flight_summary <- dbGetQuery(
+#  con,
+#  "SELECT
+#     year,
+#     month,
+#     origin,
+#     dest,
+#     carrier,
+#     COUNT(*) AS flight_count,
+#     AVG(arr_delay) AS avg_arr_delay,
+#     SUM(CASE WHEN arr_delay IS NOT NULL
+#         THEN 1 ELSE 0 END) AS delay_count
+#   FROM flights
+#   GROUP BY year, month, origin, dest, carrier
+#   ORDER BY year, month"
+#)
 
 #delay_limits <- dbGetQuery(
 #  con,
@@ -132,42 +132,69 @@ ui <- bootstrapPage(
 server <- function(input, output, session) {
   
   
-  filtered_flights <- reactive({
-    data <- flight_summary
+  get_monthly_summary <- function() {
+    
+    filters <- sprintf(
+      "month BETWEEN %d AND %d",
+      input$months[1],
+      input$months[2]
+    )
     
     if (input$year != "ALL") {
-      data <- data %>% filter(year == as.integer(input$year))
+      filters <- c(
+        filters,
+        paste0("year = ", as.integer(input$year))
+      )
     }
     
     if (input$origin != "ALL") {
-      data <- data %>% filter(origin == input$origin)
+      filters <- c(
+        filters,
+        paste0(
+          "origin = ",
+          as.character(dbQuoteString(con, input$origin))
+        )
+      )
     }
     
     if (input$dest != "ALL") {
-      data <- data %>% filter(dest == input$dest)
+      filters <- c(
+        filters,
+        paste0(
+          "dest = ",
+          as.character(dbQuoteString(con, input$dest))
+        )
+      )
     }
     
     if (input$carrier != "ALL") {
-      data <- data %>% filter(carrier == input$carrier)
+      filters <- c(
+        filters,
+        paste0(
+          "carrier = ",
+          as.character(dbQuoteString(con, input$carrier))
+        )
+      )
     }
     
-    data %>%
-      filter(
-        month >= input$months[1],
-        month <= input$months[2]
-      )
-  })
+    sql <- paste(
+      "SELECT year, month,",
+      "COUNT(*) AS flight_count,",
+      "AVG(arr_delay) AS avg_arr_delay,",
+      "SUM(CASE WHEN arr_delay IS NOT NULL THEN 1 ELSE 0 END) AS delay_count",
+      "FROM flights",
+      paste("WHERE", paste(filters, collapse = " AND ")),
+      "GROUP BY year, month",
+      "ORDER BY year, month"
+    )
+    
+    dbGetQuery(con, sql)
+  }
   
   
   output$monthly_plot <- renderPlot({
     
-    data <- filtered_flights() %>%
-      group_by(year, month) %>%
-      summarise(
-        flight_count = sum(flight_count),
-        .groups = "drop"
-      ) %>%
-      arrange(year, month)
+    data <- get_monthly_summary()
     
     validate(
       need(nrow(data) > 0, "No flights match these choices.")
@@ -196,7 +223,7 @@ server <- function(input, output, session) {
   
   output$summary_table <- renderTable({
     
-    data <- filtered_flights()
+    data <- get_monthly_summary()
     
     validate(
       need(nrow(data) > 0, "No flights match these choices.")
