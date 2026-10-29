@@ -12,7 +12,6 @@ library(palmerpenguins)
 library(shiny)
 library(ggplot2)
 library(palmerpenguins)
-
 penguin_attributes <- c(
   "Bill length (mm)" = "bill_length_mm",
   "Bill depth (mm)" = "bill_depth_mm",
